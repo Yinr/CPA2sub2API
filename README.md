@@ -6,6 +6,7 @@
 
 - `CPA -> sub2api`
 - `sub2api -> CPA`
+- 合并多个 sub2api 文件
 
 ## 界面预览
 
@@ -19,6 +20,7 @@
 ## 特性
 
 - 支持 `CPA -> sub2api` 与 `sub2api -> CPA` 双向转换
+- 支持多个 sub2api JSON 合并成一个导入文件
 - 浏览器本地完成解析和转换，不调用任何接口
 - 支持拖拽多个 `*.json` 文件
 - 支持目录导入
@@ -34,6 +36,7 @@
 
 - `CPA -> sub2api`：将 CPA 认证 JSON 转成 sub2api 可导入配置，并支持下载合并后的 `sub2api-YYYY-MM-DD_HH-mm-ss.json`
 - `sub2api -> CPA`：将 sub2api 配置中的账号拆回多个 CPA 单文件，并支持下载 `cpa-YYYY-MM-DD_HH-mm-ss.zip`
+- `合并 sub2api`：将多个 sub2api 文件中的 `accounts` 合并为一个 JSON，并保留各文件顶层 `proxies`
 
 ## 转换约定
 

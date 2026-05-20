@@ -1,5 +1,6 @@
 import {
   buildMergedSub2ApiDocument,
+  collectSub2ApiMergeEntries,
   convertCPARecord,
   convertSub2ApiDocument,
 } from "./converter.mjs";
@@ -61,6 +62,31 @@ const MODES = {
       );
     },
   },
+  mergeSub2Api: {
+    browserTitle: "合并 sub2api",
+    titleLines: ["批量合并", "多个 sub2api", "一个导入文件"],
+    heroCopy: "将多个 sub2api JSON 配置合并为一个可导入文件。支持完整 accounts 文档、accounts 数组和单账号对象，账号内容保持浏览器本地原样处理。",
+    heroTags: ["sub2api 输入", "合并 JSON", "纯前端"],
+    importTitle: "导入 sub2api 文件",
+    importSubtitle: "支持多个文件或目录导入，会合并所有 accounts。",
+    sourcePills: ["`accounts: [...]`", "`proxies: [...]`", "单账号对象"],
+    importCopy: "账号和 token 只在当前浏览器本地读取，合并时不会上传或请求接口。",
+    dropzoneTitle: "拖拽多个 sub2api `*.json` 到这里",
+    dropzoneCopy: "会保留账号对象并合并顶层 proxies，适合把拆分配置重新整理成一个文件。",
+    individualLabel: "导出 sub2api 单文件",
+    mergedLabel: "下载合并 sub2api JSON",
+    emptyText: "导入后会在这里列出待合并的 sub2api 账号。",
+    resultLabel: "sub2api 账号",
+    convertedHint(count) {
+      return `已收集 ${count} 个 sub2api 账号`;
+    },
+    getMergedFileName() {
+      return buildTargetFileName("sub2api-merged", "json");
+    },
+    buildMerged(records) {
+      return buildMergedSub2ApiDocument(records);
+    },
+  },
 };
 
 function createPageState() {
@@ -78,6 +104,7 @@ const state = {
   pages: {
     cpaToSub2Api: createPageState(),
     sub2apiToCpa: createPageState(),
+    mergeSub2Api: createPageState(),
   },
 };
 
@@ -168,6 +195,10 @@ function getIndividualDownloadLabel(mode, count) {
     return "导出 CPA 单文件";
   }
 
+  if (mode === "mergeSub2Api") {
+    return count > 3 ? "导出 sub2api ZIP 包" : "导出 sub2api 单文件";
+  }
+
   return "导出 sub2api 单文件";
 }
 
@@ -176,7 +207,7 @@ async function saveIndividualFiles(records, mode = state.mode) {
     return;
   }
 
-  if (mode === "cpaToSub2Api" && records.length > 3) {
+  if ((mode === "cpaToSub2Api" || mode === "mergeSub2Api") && records.length > 3) {
     downloadBlob(buildRecordsZip(records), buildTargetFileName("sub2api", "zip"));
     return;
   }
@@ -439,6 +470,10 @@ async function processFiles(fileList) {
             converted: [convertCPARecord(record, { sourceName })],
             skipped: [],
           };
+        }
+
+        if (mode === "mergeSub2Api") {
+          return collectSub2ApiMergeEntries(record, { sourceName });
         }
 
         return convertSub2ApiDocument(record, { sourceName });

@@ -482,6 +482,10 @@ function getSub2ApiExtra(account) {
   return isPlainObject(account.extra) ? account.extra : {};
 }
 
+function getSub2ApiDocumentProxies(document) {
+  return isPlainObject(document) && Array.isArray(document.proxies) ? document.proxies : [];
+}
+
 function buildSub2ApiEntryLabel(account, index) {
   if (!isPlainObject(account)) {
     return `accounts[${index}]`;
@@ -497,6 +501,40 @@ function buildSub2ApiEntryLabel(account, index) {
     credentials.email_address,
     `accounts[${index}]`,
   );
+}
+
+function buildSub2ApiMergeRecord(account, index, options, sourceProxies) {
+  if (!isPlainObject(account)) {
+    throw new Error("account 不是对象");
+  }
+
+  const credentials = isPlainObject(account.credentials) ? account.credentials : {};
+  const extra = getSub2ApiExtra(account);
+  const email = firstNonEmpty(extra.email, credentials.email, credentials.email_address);
+  const expiresAt = normalizeFlexibleTimestamp(credentials.expires_at);
+  const sourceType = normalizeSub2ApiPlatform(account.platform) || String(account.platform || "").trim().toLowerCase();
+  const outputFileName = buildSub2ApiOutputFileName(
+    firstNonEmpty(account.name, email, options.sourceName),
+    email,
+  );
+
+  return {
+    sourceName: options.sourceName ?? "",
+    sourceType,
+    providerLabel: firstNonEmpty(account.platform),
+    email,
+    planType: firstNonEmpty(credentials.plan_type),
+    expiresAt,
+    entryLabel: buildSub2ApiEntryLabel(account, index),
+    account,
+    sourceProxies,
+    document: {
+      exported_at: normalizeTimestamp(options.now instanceof Date ? options.now : new Date()),
+      proxies: sourceProxies,
+      accounts: [account],
+    },
+    outputFileName,
+  };
 }
 
 function convertSub2ApiOpenAIAccount(account, options) {
@@ -799,12 +837,43 @@ export function convertSub2ApiDocument(document, options = {}) {
   return { converted, skipped };
 }
 
+export function collectSub2ApiMergeEntries(document, options = {}) {
+  const accounts = extractSub2ApiAccounts(document);
+
+  if (!accounts.length) {
+    throw new Error("sub2api 配置中的 accounts 为空");
+  }
+
+  const converted = [];
+  const skipped = [];
+  const proxies = getSub2ApiDocumentProxies(document);
+
+  accounts.forEach((account, index) => {
+    try {
+      converted.push(buildSub2ApiMergeRecord(
+        account,
+        index,
+        options,
+        index === 0 ? proxies : [],
+      ));
+    } catch (error) {
+      skipped.push({
+        sourceName: options.sourceName ?? "",
+        entryLabel: buildSub2ApiEntryLabel(account, index),
+        reason: error instanceof Error ? error.message : "无法解析该账号",
+      });
+    }
+  });
+
+  return { converted, skipped };
+}
+
 export function buildMergedSub2ApiDocument(convertedRecords, options = {}) {
   const now = options.now instanceof Date ? options.now : new Date();
 
   return {
     exported_at: normalizeTimestamp(now),
-    proxies: [],
+    proxies: convertedRecords.flatMap((item) => Array.isArray(item.sourceProxies) ? item.sourceProxies : []),
     accounts: convertedRecords.map((item) => item.account).filter(Boolean),
   };
 }
